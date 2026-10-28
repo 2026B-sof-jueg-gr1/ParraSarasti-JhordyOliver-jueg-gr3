@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#101629">
+  <meta name="description" content="Cenit de Hierro: un prototipo de plataformas 2D creado con Phaser 3.">
+  <title>Cenit de Hierro</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #0b1020; }
+    body {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 18px;
+      color: #eaf2ff; font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif;
+      background: radial-gradient(ellipse at 50% 0%, #1b2744 0%, #0b1020 68%);
+    }
+    .shell { width: min(100%, 1000px); }
+    .brand { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
+    .sigil { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px;
+      color: #111827; font-size: 23px; font-weight: 900; background: linear-gradient(145deg, #ffe58a, #e99d27);
+      box-shadow: 0 0 24px #f5bd4640; }
+    h1 { font-size: clamp(20px, 3.6vw, 28px); margin: 0; letter-spacing: .07em; }
+    .tagline { margin: 3px 0 0; color: #9eacc6; font-size: 13px; }
+    #game-wrap { width: 100%; overflow: hidden; border: 1px solid #4c5b7a; border-radius: 14px;
+      box-shadow: 0 22px 70px #0008; background: #101629; }
+    #game-wrap canvas { display: block; width: 100% !important; height: auto !important; }
+    .below { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 18px; padding: 12px 2px 0;
+      color: #9eacc6; font-size: 12px; line-height: 1.5; }
+    .below strong { color: #f4d47a; font-weight: 650; }
+    kbd { display: inline-block; padding: 1px 6px; margin: 0 2px; color: #f8fafc; border: 1px solid #596780;
+      border-bottom-width: 2px; border-radius: 5px; background: #202a41; font: inherit; font-weight: 700; }
+    @media (max-width: 600px) { body { padding: 8px; } .below { font-size: 11px; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="brand">
+      <div class="sigil" aria-hidden="true">✦</div>
+      <div>
+        <h1>CENIT DE HIERRO</h1>
+        <p class="tagline">El eclipse no durará para siempre.</p>
+      </div>
+    </header>
+    <div id="game-wrap" aria-label="Juego Cenit de Hierro"></div>
+    <footer class="below">
+      <span><strong>Controles:</strong> <kbd>←</kbd><kbd>→</kbd> mover · <kbd>↑</kbd>/<kbd>Espacio</kbd> saltar · <kbd>X</kbd> lanzar · mantener <kbd>C</kbd> atraer</span>
+      <span>Recoge 3 fragmentos solares y llega al portal dorado.</span>
+    </footer>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
