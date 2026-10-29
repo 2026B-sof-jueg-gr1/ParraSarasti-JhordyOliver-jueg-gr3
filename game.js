@@ -432,7 +432,7 @@ function update(time, delta) {
     const distance = Math.max(1, Math.hypot(dx, dy));
 
     if (distance > 39) {
-      const pullStrength = axeAnchored ? 2400 : 2800;
+      const pullStrength = axeAnchored ? 1100 : 1500;
 
       // Aurel vuela hacia el hacha
       body.setAcceleration(
