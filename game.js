@@ -1,9 +1,13 @@
 /*
  * CENIT DE HIERRO — Phaser 3
- * ← → Mover | ↑ o ESPACIO Saltar
+ * ← → Mover
+ * ↑ / ESPACIO Saltar
  * Mantener X: cargar lanzamiento
  * Soltar X: lanzar Áurea
+ * ↑ + X: lanzar verticalmente
+ * ↑ + ←/→ + X: lanzar diagonalmente
  * Mantener C: atracción magnética
+ * V: llamar al hacha
  */
 
 const GAME_WIDTH = 960;
@@ -30,6 +34,7 @@ let cursors;
 let spaceKey;
 let throwKey;
 let magnetKey;
+let recallKey;
 let hudInfo;
 let promptText;
 let statusText;
@@ -38,6 +43,7 @@ let shardCount = 0;
 let axeThrown = false;
 let axeAnchored = false;
 let magnetActive = false;
+let recallingAxe = false;
 let chargingThrow = false;
 let throwChargeStart = 0;
 let throwCharge = 0;
@@ -67,20 +73,19 @@ const config = {
     width: GAME_WIDTH,
     height: GAME_HEIGHT
   },
-  scene: {
-    create,
-    update
-  }
+  scene: { create, update }
 };
 
 new Phaser.Game(config);
 
 function create() {
   sceneRef = this;
+
   shardCount = 0;
   axeThrown = false;
   axeAnchored = false;
   magnetActive = false;
+  recallingAxe = false;
   chargingThrow = false;
   throwCharge = 0;
   facing = 1;
@@ -109,8 +114,8 @@ function create() {
 
   this.physics.add.existing(player);
   player.body.setCollideWorldBounds(false);
-  player.body.setMaxVelocity(620, 760);
-  player.body.setDragX(1050);
+  player.body.setMaxVelocity(950, 1100);
+  player.body.setDragX(700);
   player.body.setSize(25, 40);
 
   this.physics.add.collider(player, platforms);
@@ -203,7 +208,6 @@ function create() {
     ease: "Sine.easeInOut"
   });
 
-  portal.setSize(80, 80);
   this.physics.add.existing(portal, true);
   portal.body.setSize(80, 80);
 
@@ -228,6 +232,10 @@ function create() {
 
   magnetKey = this.input.keyboard.addKey(
     Phaser.Input.Keyboard.KeyCodes.C
+  );
+
+  recallKey = this.input.keyboard.addKey(
+    Phaser.Input.Keyboard.KeyCodes.V
   );
 
   // Interfaz
@@ -267,7 +275,7 @@ function create() {
   promptText = this.add.text(
     GAME_WIDTH / 2,
     GAME_HEIGHT - 18,
-    "Mantén X para cargar · Suelta X para lanzar · Mantén C para atraer",
+    "← → Mover | ↑ Saltar | X Cargar/lanzar | C Atraer | V Llamar",
     {
       fontFamily: "system-ui, sans-serif",
       fontSize: "13px",
@@ -290,19 +298,27 @@ function update(time, delta) {
   const body = player.body;
   const hasAxe = !axeThrown;
 
-  const maxRun = hasAxe ? 205 : 280;
-
-  body.setMaxVelocity(620, 760);
-
-  // Movimiento horizontal
-  let direction = 0;
-
-  if (cursors.left.isDown) direction--;
-  if (cursors.right.isDown) direction++;
+  // Movimiento
+  const direction =
+    (cursors.right.isDown ? 1 : 0) -
+    (cursors.left.isDown ? 1 : 0);
 
   if (direction !== 0) {
     facing = direction;
+  }
 
+  body.setMaxVelocity(
+    magnetActive ? 950 : 620,
+    magnetActive ? 1100 : 760
+  );
+
+  if (magnetActive) {
+    body.setDrag(0, 0);
+  } else {
+    body.setDrag(700, 0);
+  }
+
+  if (direction !== 0) {
     body.setAccelerationX(
       direction * (hasAxe ? 1050 : 1450)
     );
@@ -310,7 +326,9 @@ function update(time, delta) {
     body.setAccelerationX(0);
   }
 
-  if (Math.abs(body.velocity.x) > maxRun) {
+  const maxRun = hasAxe ? 205 : 280;
+
+  if (!magnetActive && Math.abs(body.velocity.x) > maxRun) {
     body.setVelocityX(
       Math.sign(body.velocity.x) * maxRun
     );
@@ -328,13 +346,9 @@ function update(time, delta) {
     grounded
   ) {
     body.setVelocityY(hasAxe ? -445 : -475);
-
-    promptText.setText(
-      "¡En el aire! Puedes lanzar Áurea y atraerla."
-    );
   }
 
-  // Carga del lanzamiento
+  // Carga y lanzamiento
   if (
     !axeThrown &&
     throwKey.isDown &&
@@ -368,50 +382,82 @@ function update(time, delta) {
     trajectoryGraphics.clear();
   }
 
+  // Llamar al hacha con V
+  if (
+    Phaser.Input.Keyboard.JustDown(recallKey) &&
+    axeThrown
+  ) {
+    recallingAxe = true;
+    magnetActive = false;
+    axeAnchored = false;
+
+    axeBody.body.enable = true;
+    axeBody.body.setAllowGravity(false);
+    axeBody.body.setImmovable(false);
+    axeBody.body.checkCollision.none = true;
+    axeBody.body.setVelocity(0, 0);
+    axeBody.body.setAcceleration(0, 0);
+
+    promptText.setText("¡ÁUREA REGRESA A TU MANO!");
+  }
+
+  // Regreso del hacha
+  if (recallingAxe && axeThrown) {
+    const dx = player.x - axeBody.x;
+    const dy = player.y - axeBody.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+
+    axeBody.body.setVelocity(
+      (dx / distance) * 1050,
+      (dy / distance) * 1050
+    );
+
+    axeArt.rotation += 0.18;
+
+    if (distance < 42) {
+      recoverAxe();
+      promptText.setText("ÁUREA RECUPERADA");
+    }
+  }
+
   // Atracción magnética
-  magnetActive = axeThrown && magnetKey.isDown;
+  magnetActive =
+    axeThrown &&
+    magnetKey.isDown &&
+    !recallingAxe;
 
   if (magnetActive) {
     const dx = axeBody.x - player.x;
     const dy = axeBody.y - player.y;
-
-    const distance = Math.max(
-      1,
-      Math.hypot(dx, dy)
-    );
+    const distance = Math.max(1, Math.hypot(dx, dy));
 
     if (distance > 39) {
-      const pullStrength = axeAnchored ? 1050 : 1250;
+      const pullStrength = axeAnchored ? 2400 : 2800;
 
-      // Aurel acelera hacia el hacha
+      // Aurel vuela hacia el hacha
       body.setAcceleration(
         (dx / distance) * pullStrength,
         (dy / distance) * pullStrength
       );
 
       if (!axeAnchored && axeBody.body.enable) {
-        // El hacha también es atraída hacia Aurel.
-        // Su velocidad cambia gradualmente y conserva la inercia.
+        // El hacha también responde a la atracción
         axeBody.body.setAcceleration(
-          Phaser.Math.Clamp(-dx * 2, -950, 950),
-          Phaser.Math.Clamp(-dy * 2, -950, 950)
+          Phaser.Math.Clamp(-dx * 5, -1400, 1400),
+          Phaser.Math.Clamp(-dy * 5, -1400, 1400)
         );
       }
 
       promptText.setText(
-        "ATRACCIÓN ACTIVA · Suelta C para conservar el impulso."
+        "ATRACCIÓN ACTIVA · Suelta C para conservar el impulso"
       );
     } else {
       recoverAxe();
-
-      promptText.setText(
-        "Áurea recuperada. ¡Aprovecha la inercia!"
-      );
+      body.setAcceleration(0, 0);
+      promptText.setText("Áurea recuperada");
     }
-  }
-
-  // Al soltar C, se conserva la velocidad acumulada
-  if (!magnetActive) {
+  } else {
+    // Conservar velocidad al soltar C
     body.setAccelerationY(0);
 
     if (axeThrown && !axeAnchored && axeBody.body.enable) {
@@ -419,7 +465,7 @@ function update(time, delta) {
     }
   }
 
-  // Actualizar posición y giro del hacha
+  // Posición y rotación del hacha
   if (!axeThrown) {
     axeBody.setPosition(
       player.x + facing * 26,
@@ -427,7 +473,6 @@ function update(time, delta) {
     );
 
     axeBody.body.enable = false;
-
     axeArt.setPosition(axeBody.x, axeBody.y);
 
     axeArt.rotation =
@@ -437,7 +482,11 @@ function update(time, delta) {
   } else {
     axeArt.setPosition(axeBody.x, axeBody.y);
 
-    if (!axeAnchored && axeBody.body.enable) {
+    if (
+      !axeAnchored &&
+      !recallingAxe &&
+      axeBody.body.enable
+    ) {
       const vx = axeBody.body.velocity.x;
       const vy = axeBody.body.velocity.y;
 
@@ -447,24 +496,24 @@ function update(time, delta) {
       }
     }
 
-    if (axeAnchored) {
-      statusText.setText(
-        magnetActive ? "ANCLA MAGNÉTICA" : "ÁUREA: ANCLADA"
-      );
+    if (recallingAxe) {
+      statusText.setText("ÁUREA: REGRESANDO");
+    } else if (axeAnchored) {
+      statusText.setText("ÁUREA: ANCLADA");
+    } else if (magnetActive) {
+      statusText.setText("ATRACCIÓN ACTIVA");
     } else {
-      statusText.setText(
-        magnetActive ? "ATRACCIÓN ACTIVA" : "ÁUREA: EN VUELO"
-      );
+      statusText.setText("ÁUREA: EN VUELO");
     }
   }
 
-  // Actualizar ilustración del personaje
+  // Dibujar personaje
   playerArt.setPosition(player.x, player.y);
 
   if (direction < 0) playerArt.scaleX = -1;
   else if (direction > 0) playerArt.scaleX = 1;
 
-  // Recuperación al caer al vacío
+  // Caída al vacío
   if (
     player.y > WORLD_HEIGHT - 45 ||
     player.x < -80
@@ -479,12 +528,10 @@ function update(time, delta) {
       180, 245, 190, 75
     );
 
-    promptText.setText(
-      "Las ruinas te devolvieron al inicio."
-    );
+    promptText.setText("Has regresado al inicio.");
   }
 
-  // Evitar perder el hacha fuera del escenario
+  // Recuperar hacha fuera del escenario
   if (
     axeThrown &&
     (
@@ -494,10 +541,7 @@ function update(time, delta) {
     )
   ) {
     recoverAxe();
-
-    promptText.setText(
-      "Áurea regresó a tu mano. Vuelve a intentarlo."
-    );
+    promptText.setText("Áurea regresó a tu mano.");
   }
 }
 
@@ -548,14 +592,15 @@ function drawSky(scene) {
   for (let i = 0; i < 180; i++) {
     const x = Phaser.Math.Between(20, WORLD_WIDTH - 20);
     const y = Phaser.Math.Between(25, 430);
-    const radius = Math.random() > 0.88 ? 2 : 1;
 
     stars.fillStyle(
       i % 7 === 0 ? 0xffd579 : 0xb9d4ff,
       Math.random() * 0.5 + 0.28
     );
 
-    stars.fillCircle(x, y, radius);
+    stars.fillCircle(
+      x, y, Math.random() > 0.88 ? 2 : 1
+    );
   }
 
   const eclipse = scene.add.graphics().setDepth(-17);
@@ -606,7 +651,12 @@ function makeLevel(scene) {
     [1940, 245, 170, 22, "stone"],
     [2150, 320, 150, 22, "stone"],
     [2375, 240, 170, 22, "stone"],
-    [2600, 170, 205, 22, "stone"]
+    [2600, 170, 205, 22, "stone"],
+
+    // Paredes verticales para probar el anclaje lateral
+    [780, 350, 32, 220, "stone"],
+    [1460, 270, 32, 150, "stone"],
+    [2250, 250, 32, 180, "stone"]
   ];
 
   layout.forEach(([x, y, w, h, type]) => {
@@ -633,12 +683,21 @@ function makeLevel(scene) {
       0.55
     );
 
-    detail.lineBetween(
-      x - w / 2 + 8,
-      y - h / 2 + 3,
-      x + w / 2 - 8,
-      y - h / 2 + 3
-    );
+    if (h > 30) {
+      detail.lineBetween(
+        x - w / 2 + 5,
+        y - h / 2 + 5,
+        x + w / 2 - 5,
+        y - h / 2 + 5
+      );
+    } else {
+      detail.lineBetween(
+        x - w / 2 + 8,
+        y - h / 2 + 3,
+        x + w / 2 - 8,
+        y - h / 2 + 3
+      );
+    }
 
     if (type === "metal") {
       detail.fillStyle(0xb5f6ff, 0.85);
@@ -689,7 +748,6 @@ function makeCrystal(scene, x, y, index) {
   crystal.setData("glow", glow);
 
   scene.physics.add.existing(crystal);
-
   crystal.body.setAllowGravity(false);
   crystal.body.setImmovable(true);
   crystal.body.setSize(20, 26);
@@ -706,81 +764,33 @@ function makeCrystal(scene, x, y, index) {
   });
 }
 
-function drawAurel() {
-  playerArt.clear();
+function getThrowDirection() {
+  let dx = 0;
+  let dy = 0;
 
-  // Capa
-  playerArt.fillStyle(0x8d3557, 1);
+  if (cursors.up.isDown) {
+    dy = -1;
 
-  playerArt.fillPoints([
-    new Phaser.Geom.Point(-8, -8),
-    new Phaser.Geom.Point(-17, 7),
-    new Phaser.Geom.Point(-12, 17),
-    new Phaser.Geom.Point(3, 11),
-    new Phaser.Geom.Point(7, -7)
-  ], true);
+    if (cursors.left.isDown) dx = -0.75;
+    else if (cursors.right.isDown) dx = 0.75;
+  } else {
+    dx = facing;
+    dy = -0.45;
+  }
 
-  // Armadura
-  playerArt.fillStyle(0x21c9a0, 1)
-    .fillRoundedRect(-12, -10, 24, 27, 5);
+  const length = Math.hypot(dx, dy) || 1;
 
-  playerArt.lineStyle(2, 0x9affdf, 0.95)
-    .strokeRoundedRect(-12, -10, 24, 27, 5);
-
-  playerArt.fillStyle(0xf2c66d, 1)
-    .fillRect(-10, 1, 20, 4);
-
-  // Cabeza y yelmo
-  playerArt.fillStyle(0xe8c6a0, 1).fillCircle(0, -17, 8);
-  playerArt.fillStyle(0x48546e, 1).fillRoundedRect(-9, -23, 18, 6, 2);
-  playerArt.fillStyle(0xffd36c, 1).fillRect(-2, -25, 4, 4);
-
-  // Botas
-  playerArt.fillStyle(0x9a6a38, 1).fillRoundedRect(-12, 15, 10, 6, 2);
-  playerArt.fillRoundedRect(2, 15, 10, 6, 2);
-
-  // Ojo
-  playerArt.fillStyle(0x182033, 1).fillCircle(3, -17, 1.6);
-}
-
-function drawAxe() {
-  axeArt.clear();
-
-  axeArt.lineStyle(5, 0x75461f, 1);
-  axeArt.beginPath();
-  axeArt.moveTo(0, -15);
-  axeArt.lineTo(0, 20);
-  axeArt.strokePath();
-
-  axeArt.fillStyle(0xffce47, 1);
-
-  axeArt.fillPoints([
-    new Phaser.Geom.Point(-2, -15),
-    new Phaser.Geom.Point(-15, -24),
-    new Phaser.Geom.Point(-27, -17),
-    new Phaser.Geom.Point(-21, -6),
-    new Phaser.Geom.Point(-7, -4),
-    new Phaser.Geom.Point(-2, -7)
-  ], true);
-
-  axeArt.lineStyle(2, 0xfff0a4, 1);
-
-  axeArt.strokePoints([
-    new Phaser.Geom.Point(-2, -15),
-    new Phaser.Geom.Point(-15, -24),
-    new Phaser.Geom.Point(-27, -17),
-    new Phaser.Geom.Point(-21, -6),
-    new Phaser.Geom.Point(-7, -4),
-    new Phaser.Geom.Point(-2, -7)
-  ], true);
-
-  axeArt.fillStyle(0xfff6bd, 1).fillCircle(-12, -14, 2.5);
+  return {
+    x: dx / length,
+    y: dy / length
+  };
 }
 
 function launchAxe(charge = 0.5) {
   axeThrown = true;
   axeAnchored = false;
   magnetActive = false;
+  recallingAxe = false;
 
   const power = Phaser.Math.Clamp(charge, 0, 1);
 
@@ -790,38 +800,36 @@ function launchAxe(charge = 0.5) {
     power
   );
 
+  const direction = getThrowDirection();
+
   axeBody.setPosition(
-    player.x + facing * 28,
-    player.y - 4
+    player.x + direction.x * 30,
+    player.y + direction.y * 30
   );
 
   axeBody.body.enable = true;
   axeBody.body.reset(axeBody.x, axeBody.y);
   axeBody.body.setAllowGravity(true);
   axeBody.body.setImmovable(false);
+  axeBody.body.checkCollision.none = false;
   axeBody.body.setGravityY(AXE_GRAVITY - 1000);
   axeBody.body.setAcceleration(0, 0);
 
   axeBody.body.setVelocity(
-    facing * speed,
-    -speed * 0.78
+    direction.x * speed,
+    direction.y * speed
   );
 
-  // El hacha gira más rápido cuanto mayor es la carga
   axeBody.body.setAngularVelocity(
-    facing * Phaser.Math.Linear(280, 720, power)
+    facing * Phaser.Math.Linear(360, 850, power)
   );
 
   axeBody.body.setBounce(0.1);
 
   axeArt.setPosition(axeBody.x, axeBody.y);
 
-  axeArt.rotation = facing > 0
-    ? 0.65
-    : Math.PI - 0.65;
-
   promptText.setText(
-    `ÁUREA LANZADA · CARGA ${Math.round(power * 100)}% · Mantén C para atraer`
+    `ÁUREA LANZADA · CARGA ${Math.round(power * 100)}%`
   );
 
   statusText.setText("ÁUREA: EN VUELO");
@@ -838,11 +846,13 @@ function drawAxeTrajectory(charge) {
     charge
   );
 
-  const vx = facing * speed;
-  const vy = -speed * 0.78;
+  const direction = getThrowDirection();
 
-  const startX = player.x + facing * 28;
-  const startY = player.y - 4;
+  const vx = direction.x * speed;
+  const vy = direction.y * speed;
+
+  const startX = player.x + direction.x * 30;
+  const startY = player.y + direction.y * 30;
 
   const gravity = AXE_GRAVITY;
   const step = 0.035;
@@ -863,32 +873,36 @@ function drawAxeTrajectory(charge) {
     if (
       x < 0 || x > WORLD_WIDTH ||
       y < 0 || y > WORLD_HEIGHT
-    ) {
-      break;
-    }
+    ) break;
 
-    // Estimar el primer impacto descendente contra una plataforma
-    if (t > 0 && y > previousY) {
+    if (t > 0) {
       for (const platform of platforms.getChildren()) {
         const left = platform.x - platform.width / 2 - 15;
         const right = platform.x + platform.width / 2 + 15;
         const top = platform.y - platform.height / 2 - 18;
+        const bottom = platform.y + platform.height / 2 + 18;
+
+        const crossedTop =
+          y > previousY &&
+          previousY < top &&
+          y >= top &&
+          x >= left &&
+          x <= right;
+
+        const crossedSide =
+          x < left || x > right
+            ? previousX >= left && previousX <= right
+            : false;
 
         if (
-          x >= left &&
-          x <= right &&
-          previousY < top &&
-          y >= top
+          crossedTop ||
+          (crossedSide && y >= top && y <= bottom)
         ) {
-          const ratio = (top - previousY) /
-            Math.max(0.001, y - previousY);
-
           impact = {
-            x: Phaser.Math.Linear(previousX, x, ratio),
-            y: top,
+            x,
+            y: crossedTop ? top : y,
             type: platform.surfaceType || "stone"
           };
-
           break;
         }
       }
@@ -897,20 +911,15 @@ function drawAxeTrajectory(charge) {
     const px = impact ? impact.x : x;
     const py = impact ? impact.y : y;
 
-    const alpha = Math.max(
-      0.25,
-      1 - t / (maxTime * 1.35)
+    trajectoryGraphics.fillStyle(
+      pathColor,
+      Math.max(0.25, 1 - t / (maxTime * 1.35))
     );
 
-    // Puntos de trayectoria
-    trajectoryGraphics.fillStyle(pathColor, alpha);
     trajectoryGraphics.fillCircle(
-      px,
-      py,
-      2.4 + charge * 1.2
+      px, py, 2.4 + charge * 1.2
     );
 
-    // Orientación estimada del hacha durante el vuelo
     const angle = Math.atan2(
       vy + gravity * t,
       vx
@@ -919,8 +928,7 @@ function drawAxeTrajectory(charge) {
     trajectoryGraphics.lineStyle(1.5, 0xffe8a0, 0.78);
 
     trajectoryGraphics.lineBetween(
-      px,
-      py,
+      px, py,
       px + Math.cos(angle) * 7,
       py + Math.sin(angle) * 7
     );
@@ -931,28 +939,22 @@ function drawAxeTrajectory(charge) {
     previousY = y;
   }
 
-  // Marcador de impacto previsto
   if (impact) {
-    const impactColor = impact.type === "metal"
+    const color = impact.type === "metal"
       ? 0x68e0ee
       : 0xffdb73;
 
-    trajectoryGraphics.lineStyle(2, impactColor, 0.95);
+    trajectoryGraphics.lineStyle(2, color, 0.95);
     trajectoryGraphics.strokeCircle(
-      impact.x,
-      impact.y,
-      12
+      impact.x, impact.y, 12
     );
 
-    trajectoryGraphics.fillStyle(impactColor, 0.95);
+    trajectoryGraphics.fillStyle(color, 0.95);
     trajectoryGraphics.fillCircle(
-      impact.x,
-      impact.y,
-      3.5
+      impact.x, impact.y, 3.5
     );
   }
 
-  // Barra de carga sobre Aurel
   const barWidth = 58;
 
   trajectoryGraphics.fillStyle(0x101629, 0.92);
@@ -983,6 +985,7 @@ function onAxeHitPlatform(axeObject, platform) {
     !axeThrown ||
     !axeObject.body.enable ||
     axeAnchored ||
+    recallingAxe ||
     won
   ) {
     return;
@@ -1011,12 +1014,12 @@ function onAxeHitPlatform(axeObject, platform) {
     axeArt.rotation += 0.8;
 
     promptText.setText(
-      "¡REBOTE METÁLICO! Activa C para redirigir Áurea."
+      "¡REBOTE METÁLICO! Mantén C para perseguir Áurea."
     );
 
     statusText.setText("ÁUREA: REBOTE");
   } else {
-    // Piedra: el hacha queda anclada
+    // Anclaje en piedra, incluidas las paredes
     axeAnchored = true;
 
     axeObject.body.setVelocity(0, 0);
@@ -1026,7 +1029,7 @@ function onAxeHitPlatform(axeObject, platform) {
     axeObject.body.setImmovable(true);
 
     promptText.setText(
-      "Áurea se ancló en piedra. Mantén C y suéltala para impulsarte."
+      "¡Áurea anclada! Mantén C para subir hacia el hacha."
     );
 
     statusText.setText("ÁUREA: ANCLADA");
@@ -1036,6 +1039,8 @@ function onAxeHitPlatform(axeObject, platform) {
 function recoverAxe() {
   chargingThrow = false;
   throwCharge = 0;
+  recallingAxe = false;
+  magnetActive = false;
 
   if (trajectoryGraphics) {
     trajectoryGraphics.clear();
@@ -1043,7 +1048,6 @@ function recoverAxe() {
 
   axeThrown = false;
   axeAnchored = false;
-  magnetActive = false;
 
   if (axeBody && axeBody.body) {
     axeBody.body.setVelocity(0, 0);
@@ -1051,6 +1055,7 @@ function recoverAxe() {
     axeBody.body.setAngularVelocity(0);
     axeBody.body.setAllowGravity(false);
     axeBody.body.setImmovable(false);
+    axeBody.body.checkCollision.none = false;
     axeBody.body.enable = false;
   }
 
@@ -1076,7 +1081,7 @@ function collectCrystal(_player, crystal) {
   promptText.setText(
     shardCount >= REQUIRED_SHARDS
       ? "¡Suficiente luz! Alcanza el portal dorado."
-      : `Fragmento solar recuperado (${shardCount}/5). Busca más luz.`
+      : `Fragmento solar recuperado (${shardCount}/5).`
   );
 
   sceneRef.cameras.main.shake(100, 0.002);
@@ -1087,9 +1092,8 @@ function reachPortal() {
 
   if (shardCount < REQUIRED_SHARDS) {
     promptText.setText(
-      `El portal está sellado: faltan ${REQUIRED_SHARDS - shardCount} fragmento(s) solar(es).`
+      `El portal está sellado: faltan ${REQUIRED_SHARDS - shardCount} fragmento(s).`
     );
-
     return;
   }
 
