@@ -55,3 +55,4 @@ El proyecto busca experimentar con una mecánica de desplazamiento basada en un 
 ---
 
 *Proyecto académico desarrollado como parte del taller práctico de desarrollo de videojuegos con Phaser 3.*
+Sitio publicado mediante GitHub Pages.
