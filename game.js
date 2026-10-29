@@ -1158,3 +1158,129 @@ function reachPortal() {
     sceneRef.scene.restart();
   });
 }
+
+// Dibuja a Aurel, el personaje principal
+function drawAurel() {
+  if (!playerArt) return;
+
+  const g = playerArt;
+  g.clear();
+
+  // Sombra
+  g.fillStyle(0x000000, 0.3);
+  g.fillEllipse(0, 19, 25, 6);
+
+  // Capa
+  g.fillStyle(0x263654, 1);
+  g.fillPoints([
+    new Phaser.Geom.Point(-8, -7),
+    new Phaser.Geom.Point(-13, 3),
+    new Phaser.Geom.Point(-11, 13),
+    new Phaser.Geom.Point(-3, 8),
+    new Phaser.Geom.Point(0, -5)
+  ], true);
+
+  // Piernas
+  g.fillStyle(0x18243b, 1);
+  g.fillRoundedRect(-8, 6, 7, 12, 2);
+  g.fillRoundedRect(2, 6, 7, 12, 2);
+
+  // Botas
+  g.fillStyle(0xc4a66a, 1);
+  g.fillRoundedRect(-10, 15, 9, 5, 2);
+  g.fillRoundedRect(2, 15, 9, 5, 2);
+
+  // Cuerpo y armadura
+  g.fillStyle(0x35577e, 1);
+  g.fillRoundedRect(-10, -8, 20, 18, 4);
+
+  g.lineStyle(2, 0x91c8df, 1);
+  g.strokeRoundedRect(-10, -8, 20, 18, 4);
+
+  // Hombreras
+  g.fillStyle(0xe0b94f, 1);
+  g.fillCircle(-8, -5, 4);
+  g.fillCircle(8, -5, 4);
+
+  // Cuello
+  g.fillStyle(0xd9a77d, 1);
+  g.fillRect(-3, -12, 6, 6);
+
+  // Cabeza
+  g.fillStyle(0xe6b98e, 1);
+  g.fillCircle(0, -16, 7);
+
+  // Cabello
+  g.fillStyle(0x352b32, 1);
+  g.fillPoints([
+    new Phaser.Geom.Point(-7, -16),
+    new Phaser.Geom.Point(-6, -22),
+    new Phaser.Geom.Point(-1, -25),
+    new Phaser.Geom.Point(6, -21),
+    new Phaser.Geom.Point(7, -16),
+    new Phaser.Geom.Point(1, -19),
+    new Phaser.Geom.Point(-3, -17)
+  ], true);
+
+  // Ojo
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(3, -16, 1.5);
+  g.fillStyle(0x263654, 1);
+  g.fillCircle(3.5, -16, 0.8);
+
+  // Símbolo solar de la armadura
+  g.fillStyle(0xffd76a, 1);
+  g.fillPoints([
+    new Phaser.Geom.Point(0, -5),
+    new Phaser.Geom.Point(3, 0),
+    new Phaser.Geom.Point(0, 4),
+    new Phaser.Geom.Point(-3, 0)
+  ], true);
+
+  // Cinturón
+  g.fillStyle(0xe7c46c, 1);
+  g.fillRect(-9, 6, 18, 2);
+}
+
+
+// Dibuja a Áurea, el hacha de guerra
+function drawAxe() {
+  if (!axeArt) return;
+
+  const g = axeArt;
+  g.clear();
+
+  // Mango
+  g.lineStyle(5, 0x65452f, 1);
+  g.lineBetween(-3, 16, 3, -13);
+
+  // Refuerzos del mango
+  g.lineStyle(2, 0xd6b36a, 1);
+  g.lineBetween(-2, 7, 2, 5);
+  g.lineBetween(-1, 1, 3, -1);
+
+  // Cabeza metálica
+  g.fillStyle(0x4bc8d5, 1);
+  g.fillPoints([
+    new Phaser.Geom.Point(-2, -9),
+    new Phaser.Geom.Point(3, -17),
+    new Phaser.Geom.Point(14, -18),
+    new Phaser.Geom.Point(18, -13),
+    new Phaser.Geom.Point(14, -5),
+    new Phaser.Geom.Point(5, -2),
+    new Phaser.Geom.Point(1, -5)
+  ], true);
+
+  // Borde brillante de la hoja
+  g.lineStyle(2, 0xc1fbff, 1);
+  g.lineBetween(14, -18, 18, -13);
+  g.lineBetween(18, -13, 14, -5);
+
+  // Unión entre mango y hoja
+  g.fillStyle(0xffd36c, 1);
+  g.fillCircle(2, -7, 4);
+
+  // Brillo mágico
+  g.fillStyle(0xffe9a3, 0.95);
+  g.fillCircle(10, -12, 2);
+}
